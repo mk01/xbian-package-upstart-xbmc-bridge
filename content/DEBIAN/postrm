@@ -1,0 +1,6 @@
+#!/bin/bash
+
+if [ "$1" == "remove" ] || [ "$1" == "purge" ]; then
+    rm -f /usr/local/sbin/upstart_xbmc_bridge.py
+    rm -f /etc/init/upstart_xbmc_bridge.conf
+fi

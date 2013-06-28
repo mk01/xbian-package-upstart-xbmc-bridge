@@ -1,0 +1,2 @@
+2e0f316c094b104f91b59c47bd5cbfd1  etc/init/upstart_xbmc_bridge.conf
+5d0845496b3bafdecf38047309f90d86  usr/local/sbin/upstart_xbmc_bridge.py

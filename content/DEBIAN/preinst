@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [ $1 == "install" -o $1 == "upgrade" ]; then
+        if [ -f "/etc/init/upstart_xbmc_bridge.conf" ]; then
+                #stop here??
+        fi
+fi

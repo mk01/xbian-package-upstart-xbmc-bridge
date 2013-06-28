@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [ $1 == "install" -o $1 == "upgrade" ]; then
+
+        if [ -f "/etc/init.d/headphones" ]; then
+                /etc/init.d/headphones stop &>/dev/null;
+        fi
+
+        if [ -d "/usr/local/etc/headphones/" ]; then
+
+		mv /usr/local/etc/headphones /etc/headphones
+
+		ln -s /etc/headphones /usr/local/etc/headphones
+
+	else
+		true
+	fi
+
+fi
