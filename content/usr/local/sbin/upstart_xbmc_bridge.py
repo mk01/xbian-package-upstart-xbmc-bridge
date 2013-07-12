@@ -201,7 +201,7 @@ class xbmc_upstart_bridge :
                 self.emit_event('xbmcplevel',[{'LEVEL':1},{'PREVLEVEL':self.level}])
                 self.level = 1
             #level 2 :
-            elif self.screensaver and (self.player != self.library) and self.level != 2 :  #!= stand for XOR
+            elif self.screensaver and (self.player or self.library) and self.level != 2 :
                 self.emit_event('xbmcplevel',[{'LEVEL':2},{'PREVLEVEL':self.level}])
                 self.level = 2
             #level 3 :
