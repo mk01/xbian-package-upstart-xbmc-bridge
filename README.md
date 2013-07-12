@@ -27,9 +27,9 @@ send upstart event :
                  LEVEL = [012345]
                     0 : xbmc is stopped    
                     1 : xbmc very low priority (screensaver activated and player stop and library stop)
-                    2 : xbmc low priority (screensaver deactivated and (player start or library start))
+                    2 : xbmc low priority (screensaver deactivated and (player start xor library start))
                     3 : xbmc normal priority (screensaver deactivated and player stop and library stop)
-                    4 : xbmc high priotity (screensaver deactivated and (player start or library start))
+                    4 : xbmc high priotity (screensaver deactivated and (player start xor library start))
                     5 : xbmc very high priotity (screensaver deactivated and player start and library start)
                  PREVLEVEL = [012345] 
                     Previous xbmc level
