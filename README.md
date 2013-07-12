@@ -3,9 +3,9 @@ xbian-package-upstart-xbmc-bridge
 
 bridge between xbmc and upstart
     
-send upstart event :
-
-       screensaver :
+upstart event :
+---------------
+        screensaver :
              send when xbmcscreensaver is activate/deactivate
              env variable : 
                 ACTION = START/STOP
