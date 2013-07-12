@@ -17,13 +17,13 @@ class log :
         self.logfile = open(logfilepath,'w')
     
     def notice(self,msg) :
-        self._log(msg,'NOTICE',msg)
+        self._log(msg,'NOTICE')
     
     def warning(self,msg) :
-        self._log(msg,'WARNING',msg)
+        self._log(msg,'WARNING')
     
     def error(self,msg) :
-        self._log(msg,'ERROR',msg)
+        self._log(msg,'ERROR')
     
     def _log(self,msg,level) :
         self.logfile.write('%s - %s : %s\n'%(time.strftime('%D - %H:%M',time.localtime()),str(level),str(msg)))
