@@ -5,7 +5,7 @@ bridge between xbmc and upstart
     
 upstart event :
 ---------------
-        screensaver :
+      screensaver :
              send when xbmcscreensaver is activate/deactivate
              env variable : 
                 ACTION = START/STOP
