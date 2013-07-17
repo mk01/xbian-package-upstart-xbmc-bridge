@@ -4,34 +4,12 @@ import socket
 import json
 import subprocess
 import time
-
+import logging
 
 TCP_IP = '127.0.0.1'
 TCP_PORT = 9090
 BUFFER_SIZE = 256
 
-logfilepath = '/run/upstart-xbmc-bridge.log'
-
-class log :
-    def __init__(self) :
-        self.logfile = open(logfilepath,'w')
-    
-    def notice(self,msg) :
-        self._log(msg,'NOTICE')
-    
-    def warning(self,msg) :
-        self._log(msg,'WARNING')
-    
-    def error(self,msg) :
-        self._log(msg,'ERROR')
-    
-    def _log(self,msg,level) :
-        self.logfile.write('%s - %s : %s\n'%(time.strftime('%D - %H:%M',time.localtime()),str(level),str(msg)))
-        print('%s - %s : %s\n'%(time.strftime('%D - %H:%M',time.localtime()),str(level),str(msg)))
-    
-    def __del__(self):
-        self.logfile.close()
-    
 class xbmc_upstart_bridge :
     #bridge between xbmc and upstart
     #send upstart event :
@@ -70,8 +48,8 @@ class xbmc_upstart_bridge :
     
     def __init__(self) :
         #start logguer
-        self.logguer = log()
-        self.logguer.notice('upstart_xbmc_bridge started')
+        logging.basicConfig(filename='/var/log/upstart-xbmc-bridge.log',level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
+        logging.info('upstart_xbmc_bridge started')
         
         #initialise event value
         #TODO : 
@@ -92,9 +70,9 @@ class xbmc_upstart_bridge :
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try :        
             self.s.connect((TCP_IP, TCP_PORT))
-            self.logguer.notice('Connected to XBMC (%s:%d)'%(TCP_IP, TCP_PORT))        
+            logging.info('Connected to XBMC (%s:%d)'%(TCP_IP, TCP_PORT))        
         except Exception, e:
-            self.logguer.error('Cannot connect to XBMC (%s:%d) : %s'%(TCP_IP, TCP_PORT,e))          
+            logging.error('Cannot connect to XBMC (%s:%d) : %s'%(TCP_IP, TCP_PORT,e))          
             self.stopped = True
                                         
     def emit_event(self,event,data=None) :
@@ -106,12 +84,12 @@ class xbmc_upstart_bridge :
 					for key, value in event.items() :
 						cmd.append('%s=%s'%(str(key),str(value)))
             except Exception, e:
-                self.logguer.error('Cannot parse data %s : %s'%(str(data),e))
+                logging.error('Cannot parse data %s : %s'%(str(data),e))
         try :
             subprocess.check_call(cmd)
-            self.logguer.notice('Send event: %s\n'%str(cmd))
+            logging.info('Send event: %s\n'%str(cmd))
         except Exception, e:
-            self.logguer.error('Cannot send event %s : %s'%(str(cmd),e))
+            logging.error('Cannot send event %s : %s'%(str(cmd),e))
 
     def main_loop(self) :
         while not self.stopped :
@@ -121,72 +99,72 @@ class xbmc_upstart_bridge :
                 self.onEvent(data)  
             else :
             #except :
-                self.logguer.error('Cannot parse event : %s '%str(data))            
+                logging.error('Cannot parse event : %s '%str(data))            
                 
     def onEvent(self,data) :
         change = True
         #screensaver event
         if data['method'] == 'GUI.OnScreensaverActivated' :
-            self.logguer.notice('screen saver activated')
+            logging.info('screen saver activated')
             self.screensaver = True
             self.emit_event('screensaver',[{'ACTION': 'START'}])                      
         elif data['method'] == 'GUI.OnScreensaverDeactivated' :
-            self.logguer.notice('screen saver deactivated')
+            logging.info('screen saver deactivated')
             self.screensaver = False
             self.emit_event('screensaver',[{'ACTION': 'STOP'}])
         #player event
         elif data['method'] == 'Player.OnPlay' :
-            self.logguer.notice('player start')
+            logging.info('player start')
             self.player = True
             self.emit_event('player',[{'ACTION': 'PLAY'},{'TYPE':str(data['params']['data']['item']['type'])}])
         elif data['method'] == 'Player.OnStop' :
-            self.logguer.notice('player stop')
+            logging.info('player stop')
             self.player = False
             self.emit_event('player',[{'ACTION': 'STOP'},{'TYPE' :str(data['params']['data']['item']['type'])}])
         elif data['method'] == 'Player.OnPause' :
-            self.logguer.notice('player pause')
+            logging.info('player pause')
             self.player = True
             self.emit_event('player',[{'ACTION': 'PAUSE'},{'TYPE':str(data['params']['data']['item']['type'])}])
         #library event
         #video library event        
         elif data['method'] == 'VideoLibrary.OnCleanStarted' :
-            self.logguer.notice('video library clean started')
+            logging.info('video library clean started')
             self.cvlibrary = True
             self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'CLEAN'},{'TYPE' : 'VIDEO'}])
         elif data['method'] == 'VideoLibrary.OnCleanFinished' :
-            self.logguer.notice('video library clean stopped')
+            logging.info('video library clean stopped')
             self.cvlibrary = False
             self.emit_event('library',[{'ACTION': 'STOP'},{'MODE' : 'CLEAN'},{'TYPE' : 'VIDEO'}])
         elif data['method'] == 'VideoLibrary.OnScanStarted' :
-            self.logguer.notice('video library scan started')
+            logging.info('video library scan started')
             self.svlibrary = True
             self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'SCAN'},{'TYPE' : 'VIDEO'}])
         elif data['method'] == 'VideoLibrary.OnScanFinished' :
-            self.logguer.notice('video library scan stopped')
+            logging.info('video library scan stopped')
             self.svlibrary = False
             self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'SCAN'},{'TYPE' : 'VIDEO'}])
         elif data['method'] == 'VideoLibrary.OnUpdate' :
-            self.logguer.notice('video library updated')
+            logging.info('video library updated')
             self.emit_event('library',[{'ACTION': 'UPDATED'},{'MODE' : 'NONE'},{'TYPE' : 'VIDEO'}])         
         #audio library event        
         elif data['method'] == 'AudioLibrary.OnCleanStarted' :
-            self.logguer.notice('audio library clean started')
+            logging.info('audio library clean started')
             self.calibrary = True
             self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'CLEAN'},{'TYPE' : 'AUDIO'}])
         elif data['method'] == 'AudioLibrary.OnCleanFinished' :
-            self.logguer.notice('audio library scan stopeed')
+            logging.info('audio library scan stopeed')
             self.calibrary = False
             self.emit_event('library',[{'ACTION': 'STOP'},{'MODE' : 'CLEAN'},{'TYPE' : 'AUDIO'}])     
         elif data['method'] == 'AudioLibrary.OnScanStarted' :
-            self.logguer.notice('audio library scan started')
+            logging.info('audio library scan started')
             self.salibrary = True
             self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'SCAN'},{'TYPE' : 'AUDIO'}])
         elif data['method'] == 'AudioLibrary.OnScanFinished' :
-            self.logguer.notice('audio library scan stopped')
+            logging.info('audio library scan stopped')
             self.salibrary = False
             self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'SCAN'},{'TYPE' : 'AUDIO'}])
         elif data['method'] == 'AudioLibrary.OnUpdate' :
-            self.logguer.notice('audio library updated')
+            logging.info('audio library updated')
             self.emit_event('library',[{'ACTION': 'UPDATED'},{'MODE' : 'NONE'},{'TYPE' : 'AUDIO'}])                             
         else :
             change = False  
