@@ -22,3 +22,4 @@ fakeroot dpkg-deb -b ./content "${package}""${version}".deb
 
 # remove the size again, because on different filesystems du will return different size
 rm_size
+rm -f ./content/DEBIAN/md5sums

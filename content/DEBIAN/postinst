@@ -1,4 +1,10 @@
 #!/bin/bash
 if [ $1 == "configure" ]; then
-    initctl reload-configuration	
+    if status -q xbian-xbmc-bridge; then
+        # if config changed and xbian-xbmc-bridge was running, restart will not reread new configuration. according do doc, stop and start is needed
+        stop -q xbian-xbmc-bridge
+        start -q xbian-xbmc-bridge
+    else
+        status -q xbmc || start -q xbian-xbmc-bridge
+    fi
 fi

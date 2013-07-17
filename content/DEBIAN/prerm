@@ -1,9 +1,5 @@
 #!/bin/bash
 
 if [ "$1" == "remove" ] || [ "$1" == "purge" ]; then
-
-        if [ -f "/etc/init/upstart_xbmc_bridge.conf" ]; then
-                echo 'should stop here';
-        fi
-
+    status -q xbian-xbmc-bridge && stop xbian-xbmc-bridge || exit 0
 fi
