@@ -1,5 +1,5 @@
 #!/bin/bash
 
 if [ "$1" == "remove" ] || [ "$1" == "purge" ]; then
-    status -q xbian-xbmc-bridge && stop xbian-xbmc-bridge || exit 0
+    status -q xbian-xbmc-bridge && stop -q xbian-xbmc-bridge || exit 0
 fi
