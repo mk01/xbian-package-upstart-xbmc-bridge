@@ -76,7 +76,7 @@ class xbmc_upstart_bridge :
             self.stopped = True
                                         
     def emit_event(self,event,data=None) :
-        cmd = ['initctl','emit',event]
+        cmd = ['initctl','emit','-n',event]
         if data :
             print data
             try :
