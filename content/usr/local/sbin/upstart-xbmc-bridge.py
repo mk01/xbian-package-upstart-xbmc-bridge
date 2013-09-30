@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 
 import socket
+import time
+import struct
 import json
 import subprocess
 import time
 import logging
+import os
 import signal
 
 TCP_IP = '127.0.0.1'
 TCP_PORT = 9090
-BUFFER_SIZE = 256
+BUFFER_SIZE = 1024
 
 class xbmc_upstart_bridge :
     #bridge between xbmc and upstart
@@ -67,8 +70,9 @@ class xbmc_upstart_bridge :
         self.screensaver = False
         self.player = False
         self.library = False
-        
+
         self.pvr = False
+        
         self.cvlibrary = False #clean video library
         self.svlibrary = False #scan video library
         self.calibrary = False #clean audio library
@@ -78,7 +82,7 @@ class xbmc_upstart_bridge :
             
         #connect to TCP JSON XBMC API
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try :        
+        try :
             self.s.connect((TCP_IP, TCP_PORT))
             l_onoff = 1
             l_linger = 0
@@ -106,14 +110,25 @@ class xbmc_upstart_bridge :
 
     def main_loop(self) :
         while not self.stopped :
-            data = json.loads(self.s.recv(BUFFER_SIZE))
-            #try :
-            if True :
-                self.onEvent(data)  
-            else :
-            #except :
-                logging.error('Cannot parse event : %s '%str(data))            
-                
+            try:
+                strReceived = self.s.recv(BUFFER_SIZE)
+            except IOError:
+                if not self.stopped:
+                    logging.error('Cannot read from socket')
+                    self.stopped = True
+            else:
+                try:
+                    data = json.loads(strReceived)
+                except:
+                    if not self.stopped:
+                        logging.error('Cannot parse event : %s '%str(strReceived))
+                        if str(strReceived) == '':
+                            self.stopped = True
+                        else:
+                            time.sleep(5)
+                else:
+                    self.onEvent(data)
+
     def onEvent(self,data) :
         change = True
         #screensaver event
@@ -135,7 +150,7 @@ class xbmc_upstart_bridge :
         if data['method'] == 'GUI.OnScreensaverActivated' :
             logging.info('screen saver activated')
             self.screensaver = True
-            self.emit_event('screensaver',[{'ACTION': 'START'}])                      
+            self.emit_event('screensaver',[{'ACTION': 'START'}])
         elif data['method'] == 'GUI.OnScreensaverDeactivated' :
             logging.info('screen saver deactivated')
             self.screensaver = False
@@ -195,8 +210,8 @@ class xbmc_upstart_bridge :
             logging.info('audio library updated')
             self.emit_event('library',[{'ACTION': 'UPDATED'},{'MODE' : 'NONE'},{'TYPE' : 'AUDIO'}])                             
         else :
-            change = False  
-        
+            change = False
+
         if change :
             self.library = self.salibrary or self.svlibrary or self.calibrary or self.cvlibrary
             #check for xbmc level
@@ -226,7 +241,6 @@ class xbmc_upstart_bridge :
             elif not self.screensaver and self.player and self.library and self.level != 5 :
                 self.emit_event('xbmcplevel',[{'LEVEL':5},{'PREVLEVEL':self.level}])
                 self.level = 5
-
 
 #############  MAIN ###############
 main = xbmc_upstart_bridge()
