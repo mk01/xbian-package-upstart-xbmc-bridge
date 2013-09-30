@@ -68,6 +68,7 @@ class xbmc_upstart_bridge :
         self.player = False
         self.library = False
         
+        self.pvr = False
         self.cvlibrary = False #clean video library
         self.svlibrary = False #scan video library
         self.calibrary = False #clean audio library
@@ -119,6 +120,15 @@ class xbmc_upstart_bridge :
             os.system('touch /run/lock/xbmc.quit; sleep 10; stop -q xbmc; sleep 5; pkill xbmc.bin || pkill -9 xbmc.bin')
             self.stopped = True
             return 0
+
+        try:
+            str(data['params']['data']['item']['type'])
+        except:
+            pass
+        else:
+            if str(data['params']['data']['item']['type']) == 'channel' and  data['method'] == 'Player.OnPlay':
+                self.pvr = True
+
         if data['method'] == 'GUI.OnScreensaverActivated' :
             logging.info('screen saver activated')
             self.screensaver = True
@@ -190,7 +200,11 @@ class xbmc_upstart_bridge :
             #level 0 :
             #level 0 will be emitted with a special upstart script
             #level 1 :
-            if self.screensaver and not self.player and not self.library and self.level != 1 :
+            if self.pvr :
+                self.emit_event('xbmcplevel',[{'LEVEL':5},{'PREVLEVEL':self.level}])
+                self.level = 5
+                self.pvr = False
+            elif self.screensaver and not self.player and not self.library and self.level != 1 :
                 self.emit_event('xbmcplevel',[{'LEVEL':1},{'PREVLEVEL':self.level}])
                 self.level = 1
             #level 2 :
