@@ -5,6 +5,7 @@ import json
 import subprocess
 import time
 import logging
+import signal
 
 TCP_IP = '127.0.0.1'
 TCP_PORT = 9090
@@ -49,6 +50,10 @@ class xbmc_upstart_bridge :
     def onExit(self):
         logging.info('Closing')
         self.s.close()
+
+    def handleSigTERM(self, signum, a):
+        logging.info('sigterm')
+        self.stopped = True
 
     def __init__(self) :
         #start logguer
@@ -202,5 +207,12 @@ class xbmc_upstart_bridge :
 
 #############  MAIN ###############
 main = xbmc_upstart_bridge()
+
+logging.info('Installing signal handler')
+signal.siginterrupt(signal.SIGTERM, False)
+signal.signal(signal.SIGTERM, main.handleSigTERM)
+signal.siginterrupt(signal.SIGINT, False)
+signal.signal(signal.SIGINT, main.handleSigTERM)
+
 main.main_loop()
 main.onExit()
