@@ -46,6 +46,10 @@ class xbmc_upstart_bridge :
     #                Previous xbmc level
     
     
+    def onExit(self):
+        logging.info('Closing')
+        self.s.close()
+
     def __init__(self) :
         #start logguer
         logging.basicConfig(filename='/var/log/upstart-xbmc-bridge.log',level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
@@ -199,3 +203,4 @@ class xbmc_upstart_bridge :
 #############  MAIN ###############
 main = xbmc_upstart_bridge()
 main.main_loop()
+main.onExit()
