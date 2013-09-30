@@ -113,6 +113,12 @@ class xbmc_upstart_bridge :
     def onEvent(self,data) :
         change = True
         #screensaver event
+        logging.info(data['method'])
+        if data['method'] == 'System.OnQuit' :
+            logging.info('Quit requested')
+            os.system('touch /run/lock/xbmc.quit; sleep 10; stop -q xbmc; sleep 5; pkill xbmc.bin || pkill -9 xbmc.bin')
+            self.stopped = True
+            return 0
         if data['method'] == 'GUI.OnScreensaverActivated' :
             logging.info('screen saver activated')
             self.screensaver = True
