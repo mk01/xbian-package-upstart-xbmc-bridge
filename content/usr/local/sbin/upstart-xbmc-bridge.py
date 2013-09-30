@@ -80,6 +80,9 @@ class xbmc_upstart_bridge :
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try :        
             self.s.connect((TCP_IP, TCP_PORT))
+            l_onoff = 1
+            l_linger = 0
+            self.s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', l_onoff, l_linger))
             logging.info('Connected to XBMC (%s:%d)'%(TCP_IP, TCP_PORT))        
         except Exception, e:
             logging.error('Cannot connect to XBMC (%s:%d) : %s'%(TCP_IP, TCP_PORT,e))          
