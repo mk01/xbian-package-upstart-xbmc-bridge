@@ -90,6 +90,7 @@ class xbmc_upstart_bridge :
             logging.info('Connected to XBMC (%s:%d)'%(TCP_IP, TCP_PORT))        
         except Exception, e:
             logging.error('Cannot connect to XBMC (%s:%d) : %s'%(TCP_IP, TCP_PORT,e))          
+            time.sleep(30)
             self.stopped = True
                                         
     def emit_event(self,event,data=None) :
@@ -135,7 +136,7 @@ class xbmc_upstart_bridge :
         logging.info(data['method'])
         if data['method'] == 'System.OnQuit' :
             logging.info('Quit requested')
-            os.system('touch /run/lock/xbmc.quit; sleep 10; stop -q xbmc; sleep 5; pkill xbmc.bin || pkill -9 xbmc.bin')
+            os.system('touch /run/lock/xbmc.quit; sleep 15; stop -q xbmc; sleep 5; pkill xbmc.bin || pkill -9 xbmc.bin')
             self.stopped = True
             return 0
 
