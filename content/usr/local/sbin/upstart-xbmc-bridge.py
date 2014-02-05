@@ -135,8 +135,10 @@ class xbmc_upstart_bridge :
         #screensaver event
         logging.info(data['method'])
         if data['method'] == 'System.OnQuit' :
-            logging.info('Quit requested')
-            os.system('touch /run/lock/xbmc.quit; sleep 15; stop -q xbmc; sleep 5; pkill xbmc.bin || pkill -9 xbmc.bin')
+            logging.info('Quit requested: %s '%str(data['params']['data']))
+            f = open('/run/lock/xbmc.quit', 'w')
+            f.write(str(data['params']['data']))
+            os.system('pid=$(initctl status xbmc | cut -d " " -f 4); sleep 15 && kill $pid || kill -9 $pid;')
             self.stopped = True
             return 0
 
