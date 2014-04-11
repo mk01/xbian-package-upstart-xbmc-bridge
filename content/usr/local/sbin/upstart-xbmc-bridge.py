@@ -10,7 +10,7 @@ import logging
 import os
 import signal
 
-TCP_IP = '127.0.0.1'
+TCP_IP = 'localhost'
 TCP_PORT = 9090
 BUFFER_SIZE = 1024
 
@@ -81,9 +81,8 @@ class xbmc_upstart_bridge :
         self.stopped = False
             
         #connect to TCP JSON XBMC API
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try :
-            self.s.connect((TCP_IP, TCP_PORT))
+            self.s = socket.create_connection((TCP_IP, TCP_PORT))
             l_onoff = 1
             l_linger = 0
             self.s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', l_onoff, l_linger))
