@@ -137,7 +137,8 @@ class xbmc_upstart_bridge :
             logging.info('Quit requested: %s '%str(data['params']['data']))
             f = open('/run/lock/xbmc.quit', 'w')
             f.write(str(data['params']['data']))
-            os.system('pid=$(initctl status xbmc | cut -d " " -f 4); sleep 15 && kill $pid || kill -9 $pid;')
+            f.close()
+            os.system('stop -n xbmc')
             self.stopped = True
             return 0
 
