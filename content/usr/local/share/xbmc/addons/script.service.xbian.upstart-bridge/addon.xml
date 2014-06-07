@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="script.service.xbian.upstart-bridge" name="XBian XBMC-Upstart bridge" version="0.0.1" provider-name="XBian">
+    <extension point="xbmc.metadata">
+        <platform>linux</platform>
+        <source>https://github.com/FIXME</source>
+
+        <!-- Translatable strings -->
+        <summary lang="en">Transforms XBMC events in Upstart events</summary>
+        <summary lang="it">Trasforma eventi di XBMC in eventi di Upstart</summary>
+        <!-- /Translatable strings -->
+    </extension>
+    <extension point="xbmc.service" library="service.py" start="startup"/>
+    <requires>
+        <import addon="xbmc.python" version="2.14.0"/>
+    </requires>
+</addon>
