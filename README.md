@@ -10,14 +10,20 @@
             ACTION=STOP
                 XBMC stopped playing something, either because the stream has ended or it was interrupted by the user.
 
-            TYPE=AUDIO
-                The "something" above is an audio stream.
+            TYPE=CHANNEL
+                A channel is being played.
+            TYPE=EPISODE
+                A TV show episode is being played.
             TYPE=MOVIE
-                The "something" above is a movie.
-            TYPE=NONE
-                XXX this doesn't appear to be used and should probably be removed
-            TYPE=TVSHOW
-                The "something" above is a tv show (episode).
+                A movie is being played.
+            TYPE=MUSICVIDEO
+                A music video is being played.
+            TYPE=PICTURE
+                A picture is being shown.
+            TYPE=SONG
+                A song is being played.
+            TYPE=UNKNOWN
+                This "type" is used when XBMC doesn't have a more specific type.
 
     library
         environment variables:

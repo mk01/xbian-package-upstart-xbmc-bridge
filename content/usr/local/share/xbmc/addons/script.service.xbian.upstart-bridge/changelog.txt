@@ -1,2 +1,2 @@
-vFIXME
-- Initial release.
+v2.0.0
+- Initial release as a XBMC add-on.

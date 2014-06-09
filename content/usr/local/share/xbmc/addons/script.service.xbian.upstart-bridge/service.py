@@ -1,258 +1,171 @@
-#!/usr/bin/env python
+import xbmc
+import xbmcaddon
 
-import socket
-import time
-import struct
-import json
 import subprocess
-import time
-import logging
-import os
-import signal
 
-TCP_IP = 'localhost'
-TCP_PORT = 9090
-BUFFER_SIZE = 1024
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
-class xbmc_upstart_bridge :
-    #bridge between xbmc and upstart
-    #send upstart event :
-    #Event :
-    #   screensaver :
-    #         send when xbmcscreensaver is activate/deactivate
-    #         env variable : 
-    #            ACTION = START/STOP
-    #   player :
-    #         send when player is start/stop/pause
-    #         env variable :
-    #            ACTION = PLAY/STOP/PAUSE
-    #            TYPE = MOVIE/TVSHOW/AUDIO/NONE (to be check on xbmc api)
-    #   library :
-    #         send when action on library :
-    #         env variable :
-    #            ACTION = START/STOP/UPDATED
-    #            MODE = UPDATE/CLEAN/NONE
-    #            TYPE = AUDIO/VIDEO
-    #
-    #   it will also send special event xbmcplevel (xbmc priority level)
-    #   it create profile for xbmc use and dynamic priority management in upstart script
-    #   xbmcplevel :
-    #          send when xbmc change his level
-    #          env variable  :
-    #             LEVEL = [012345]
-    #                0 : xbmc is stopped    
-    #                1 : xbmc very low priority (screensaver activated and player stop and library stop)
-    #                2 : xbmc low priority (screensaver activated and (player start or library start))
-    #                3 : xbmc normal priority (screensaver deactivated and player stop and library stop)
-    #                4 : xbmc high priotity (screensaver deactivated and (player start or library start))
-    #                5 : xbmc very high priotity (screensaver deactivated and player start and library start)
-    #             PREVLEVEL = [012345] 
-    #                Previous xbmc level
-    
-    
-    def onExit(self):
-        logging.info('Closing')
-        self.s.close()
+__addonname__ = xbmcaddon.Addon().getAddonInfo('name')
+del xbmcaddon
 
-    def handleSigTERM(self, signum, a):
-        logging.info('sigterm')
-        self.stopped = True
+NORMAL_LEVEL = 3
+EXIT_CODE_FILE = '/run/lock/xbmc.quit'
 
-    def __init__(self) :
-        #start logguer
-        logging.basicConfig(filename='/var/log/upstart-xbmc-bridge.log',level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
-        logging.info('upstart_xbmc_bridge started')
-        
-        #initialise event value
-        #TODO : 
-        #check in real time xbmc status with json api
-        #suppose for now xbmc start and doing nothing on start and xbmc-upstart-bridge is run at the starting of xbmc
-        self.screensaver = False
-        self.player = False
-        self.library = False
+def log(msg, level=xbmc.LOGNOTICE):
+    if level == xbmc.LOGDEBUG: level = xbmc.LOGNOTICE # XXX testing, remove when done
+    xbmc.log('%s: %s' % (__addonname__, msg), level)
 
-        self.pvr = False
-        
-        self.cvlibrary = False #clean video library
-        self.svlibrary = False #scan video library
-        self.calibrary = False #clean audio library
-        self.salibrary = False #scan audio library
-        self.level = 3
-        self.stopped = False
-            
-        #connect to TCP JSON XBMC API
-        try :
-            self.s = socket.create_connection((TCP_IP, TCP_PORT))
-            l_onoff = 1
-            l_linger = 0
-            self.s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', l_onoff, l_linger))
-            logging.info('Connected to XBMC (%s:%d)'%(TCP_IP, TCP_PORT))        
-        except Exception, e:
-            logging.error('Cannot connect to XBMC (%s:%d) : %s'%(TCP_IP, TCP_PORT,e))          
-            time.sleep(30)
-            self.stopped = True
-                                        
-    def emit_event(self,event,data=None) :
-        cmd = ['initctl','emit','-n',event]
-        if data :
-            print data
-            try :
-                for event in data :
-					for key, value in event.items() :
-						cmd.append('%s=%s'%(str(key),str(value)))
-            except Exception, e:
-                logging.error('Cannot parse data %s : %s'%(str(data),e))
-        try :
-            subprocess.check_call(cmd)
-            logging.info('Send event: %s\n'%str(cmd))
-        except Exception, e:
-            logging.error('Cannot send event %s : %s'%(str(cmd),e))
+class UpstartBridge(object):
+    def __init__(self):
+        self.monitor = XBMCMonitor(self)
+        self.player = XBMCPlayer()
+        log('started', xbmc.LOGDEBUG)
 
-    def main_loop(self) :
-        while not self.stopped :
-            try:
-                strReceived = self.s.recv(BUFFER_SIZE)
-            except IOError:
-                if not self.stopped:
-                    logging.error('Cannot read from socket')
-                    self.stopped = True
-            else:
-                try:
-                    data = json.loads(strReceived)
-                except:
-                    if not self.stopped:
-                        logging.error('Cannot parse event : %s '%str(strReceived))
-                        if str(strReceived) == '':
-                            self.stopped = True
-                        else:
-                            time.sleep(5)
-                else:
-                    self.onEvent(data)
+        self.current_level = self._calculate_priority_level()
 
-    def onEvent(self,data) :
-        change = True
-        #screensaver event
-        logging.info(data['method'])
-        if data['method'] == 'System.OnQuit' :
-            logging.info('Quit requested: %s '%str(data['params']['data']))
-            f = open('/run/lock/xbmc.quit', 'w')
-            f.write(str(data['params']['data']))
-            f.close()
-            os.system('stop -n xbmc')
-            self.stopped = True
-            return 0
+    def _calculate_priority_level(self):
+        level = NORMAL_LEVEL
 
+        if self.monitor.screensaver:
+            level -= 1
+
+        if any(self.monitor.library_statuses.values()):
+            level += 1
+        elif self.monitor.screensaver:
+            level -= 1
+
+        if self.player.isPlaying():
+            level += 1
+            if self.player.isPlayingLiveTV():
+                # Always force 5 when on Live TV
+                level += 1
+        elif self.monitor.screensaver:
+            level -= 1
+
+        # Ensure we return a value between 1 and 5
+        level = max(1, min(5, level))
+        log('calculated priority: %d, based on monitor.screensaver=%s, monitor.library_statuses=%s, player.isPlaying()=%s, player.isPlayingLiveTV()=%s' % (level, self.monitor.screensaver, self.monitor.library_statuses, self.player.isPlaying(), self.player.isPlayingLiveTV()), xbmc.LOGDEBUG)
+        return level
+
+    def emit_event(self, event, env_vars={}, change_level=True):
+        emit_cmd = ['sudo', 'initctl', 'emit', '-n', '-q', event]
+
+        # Old versions (the Python script) emitted type=audio for "music"
+        if event == 'library' and env_vars['type'] == 'music':
+            env_vars['type'] = 'audio'
+
+        if env_vars:
+            for key, value in env_vars.items():
+                emit_cmd.append('%s=%s' % (key.upper(), str(value).upper()))
+
+        log('emitting Upstart event: %s' % ' '.join(emit_cmd), xbmc.LOGDEBUG)
         try:
-            str(data['params']['data']['item']['type'])
-        except:
-            pass
+            subprocess.check_call(emit_cmd)
+        except subprocess.CalledProcessError as e:
+            log("the following error occurred while emitting event '%s': %s" % (' '.join(emit_cmd), e), xbmc.LOGERROR)
+
+        if change_level:
+            new_level = self._calculate_priority_level()
+            if new_level != self.current_level:
+                # Ensure we don't produce an infinite loop by passing change_level=False
+                self.emit_event('xbmcplevel', {'level': new_level, 'prevlevel': self.current_level}, change_level=False)
+                self.current_level = new_level
+
+    def stop(self, exit_code):
+        stop_cmd = ['sudo', 'stop', '-n', '-q', 'xbmc']
+
+        log('saving exit status code (%d) to %s' % (exit_code, EXIT_CODE_FILE), xbmc.LOGDEBUG)
+        with open(EXIT_CODE_FILE, 'w') as exit_code_f:
+            exit_code_f.write(str(exit_code))
+
+        log('asking Upstart to stop XBMC: %s' % ' '.join(stop_cmd), xbmc.LOGDEBUG)
+        try:
+            subprocess.call(stop_cmd)
+        except OSError as e:
+            log("the following error occurred while executing '%s': %s" % (' '.join(stop_cmd), e), xbmc.LOGERROR)
+
+class XBMCMonitor(xbmc.Monitor):
+    def __init__(self, upstartbridge_instance):
+        xbmc.Monitor.__init__(self)
+        self.upstartbridge_instance = upstartbridge_instance
+
+        # Being this a service add-on started on startup, we can quite safely assume that:
+        # * the screensaver is not active;
+        # * XBMC is not cleaning any library.
+        self.screensaver = False
+        self.library_statuses = {
+            'cleaning_music': False,
+            'cleaning_video': False,
+            'scanning_music': bool(xbmc.getCondVisibility('Library.IsScanningMusic')),
+            'scanning_video': bool(xbmc.getCondVisibility('Library.IsScanningVideo'))
+        }
+
+    def onAbortRequested(self):
+        log('got notification for event onAbortRequested', xbmc.LOGDEBUG)
+        self.upstartbridge_instance = None
+
+    def onCleanFinished(self, library):
+        log('got notification for event onCleanFinished, library: %s' % library, xbmc.LOGDEBUG)
+        self.library_statuses['cleaning_' + library] = False
+        self.upstartbridge_instance.emit_event('library', {'action': 'stop', 'mode': 'clean', 'type': library})
+
+    def onCleanStarted(self, library):
+        log('got notification for event onCleanStarted, library: %s' % library, xbmc.LOGDEBUG)
+        self.library_statuses['cleaning_' + library] = True
+        self.upstartbridge_instance.emit_event('library', {'action': 'start', 'mode': 'clean', 'type': library})
+
+    def onDatabaseScanStarted(self, database):
+        log('got notification for event onDatabaseScanStarted, database: %s' % database, xbmc.LOGDEBUG)
+        self.library_statuses['scanning_' + database] = True
+        self.upstartbridge_instance.emit_event('library', {'action': 'start', 'mode': 'scan', 'type': database})
+
+    def onDatabaseUpdated(self, database):
+        log('got notification for event onDatabaseUpdated, database: %s' % database, xbmc.LOGDEBUG)
+        self.library_statuses['scanning_' + database] = False
+        # onDatabaseUpdated gets fired on '{Audio,Video}Library.OnScanFinished', so we emit 2 events here as old
+        # versions of this add-on (it was actually a Python script) used the JSON-RPC API, which fired more
+        # specific events, though they're actually the same event.
+        self.upstartbridge_instance.emit_event('library', {'action': 'stop', 'mode': 'scan', 'type': database})
+        self.upstartbridge_instance.emit_event('library', {'action': 'updated', 'mode': 'none', 'type': database}, change_level=False) # We just did with the emit_event above
+
+    def onNotification(self, sender, method, data):
+        if method == 'System.OnQuit':
+            exit_code = json.loads(data)
+            log('got notification for event System.OnQuit, exit status code: %d' % exit_code, xbmc.LOGDEBUG)
+            self.upstartbridge_instance.stop(exit_code)
+        # We don't use the onPlayBack* callbacks as to find the "type" we need to call xbmc.getCondVisibility()/xbmc.getInfoLabel()
+        # but they sometimes incorrectly return an empty string and/or a wrong boolean value.
+        elif method == 'Player.OnPlay': # playback started or resumed
+            log('got notification for event Player.OnPlay. player.isPlayingLiveTV() = %s' % self.upstartbridge_instance.player.isPlayingLiveTV(), xbmc.LOGDEBUG)
+            self.upstartbridge_instance.emit_event('player', {'action': 'play', 'type': json.loads(data)['item']['type']})
+        elif method == 'Player.OnPause':
+            log('got notification for event Player.OnPause', xbmc.LOGDEBUG)
+            self.upstartbridge_instance.emit_event('player', {'action': 'pause', 'type': json.loads(data)['item']['type']})
+        elif method == 'Player.OnStop':
+            log('got notification for event Player.OnStop', xbmc.LOGDEBUG)
+            self.upstartbridge_instance.emit_event('player', {'action': 'stop', 'type': json.loads(data)['item']['type']})
+
+    def onScreensaverActivated(self):
+        log('got notification for event onScreensaverActivated', xbmc.LOGDEBUG)
+        self.screensaver = True
+        self.upstartbridge_instance.emit_event('screensaver', {'action': 'start'})
+
+    def onScreensaverDeactivated(self):
+        log('got notification for event onScreensaverDeactivated', xbmc.LOGDEBUG)
+        self.screensaver = False
+        self.upstartbridge_instance.emit_event('screensaver', {'action': 'stop'})
+
+class XBMCPlayer(xbmc.Player):
+    def isPlayingLiveTV(self):
+        if self.isPlaying():
+            return self.getPlayingFile().startswith("pvr://")
         else:
-            if str(data['params']['data']['item']['type']) == 'channel' and  data['method'] == 'Player.OnPlay':
-                self.pvr = True
+            return False
 
-        if data['method'] == 'GUI.OnScreensaverActivated' :
-            logging.info('screen saver activated')
-            self.screensaver = True
-            self.emit_event('screensaver',[{'ACTION': 'START'}])
-        elif data['method'] == 'GUI.OnScreensaverDeactivated' :
-            logging.info('screen saver deactivated')
-            self.screensaver = False
-            self.emit_event('screensaver',[{'ACTION': 'STOP'}])
-        #player event
-        elif data['method'] == 'Player.OnPlay' :
-            logging.info('player start')
-            self.player = True
-            self.emit_event('player',[{'ACTION': 'PLAY'},{'TYPE':str(data['params']['data']['item']['type'])}])
-        elif data['method'] == 'Player.OnStop' :
-            logging.info('player stop')
-            self.player = False
-            self.emit_event('player',[{'ACTION': 'STOP'},{'TYPE' :str(data['params']['data']['item']['type'])}])
-        elif data['method'] == 'Player.OnPause' :
-            logging.info('player pause')
-            self.player = True
-            self.emit_event('player',[{'ACTION': 'PAUSE'},{'TYPE':str(data['params']['data']['item']['type'])}])
-        #library event
-        #video library event        
-        elif data['method'] == 'VideoLibrary.OnCleanStarted' :
-            logging.info('video library clean started')
-            self.cvlibrary = True
-            self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'CLEAN'},{'TYPE' : 'VIDEO'}])
-        elif data['method'] == 'VideoLibrary.OnCleanFinished' :
-            logging.info('video library clean stopped')
-            self.cvlibrary = False
-            self.emit_event('library',[{'ACTION': 'STOP'},{'MODE' : 'CLEAN'},{'TYPE' : 'VIDEO'}])
-        elif data['method'] == 'VideoLibrary.OnScanStarted' :
-            logging.info('video library scan started')
-            self.svlibrary = True
-            self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'SCAN'},{'TYPE' : 'VIDEO'}])
-        elif data['method'] == 'VideoLibrary.OnScanFinished' :
-            logging.info('video library scan stopped')
-            self.svlibrary = False
-            self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'SCAN'},{'TYPE' : 'VIDEO'}])
-        elif data['method'] == 'VideoLibrary.OnUpdate' :
-            logging.info('video library updated')
-            self.emit_event('library',[{'ACTION': 'UPDATED'},{'MODE' : 'NONE'},{'TYPE' : 'VIDEO'}])         
-        #audio library event        
-        elif data['method'] == 'AudioLibrary.OnCleanStarted' :
-            logging.info('audio library clean started')
-            self.calibrary = True
-            self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'CLEAN'},{'TYPE' : 'AUDIO'}])
-        elif data['method'] == 'AudioLibrary.OnCleanFinished' :
-            logging.info('audio library scan stopeed')
-            self.calibrary = False
-            self.emit_event('library',[{'ACTION': 'STOP'},{'MODE' : 'CLEAN'},{'TYPE' : 'AUDIO'}])     
-        elif data['method'] == 'AudioLibrary.OnScanStarted' :
-            logging.info('audio library scan started')
-            self.salibrary = True
-            self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'SCAN'},{'TYPE' : 'AUDIO'}])
-        elif data['method'] == 'AudioLibrary.OnScanFinished' :
-            logging.info('audio library scan stopped')
-            self.salibrary = False
-            self.emit_event('library',[{'ACTION': 'START'},{'MODE' : 'SCAN'},{'TYPE' : 'AUDIO'}])
-        elif data['method'] == 'AudioLibrary.OnUpdate' :
-            logging.info('audio library updated')
-            self.emit_event('library',[{'ACTION': 'UPDATED'},{'MODE' : 'NONE'},{'TYPE' : 'AUDIO'}])                             
-        else :
-            change = False
-
-        if change :
-            self.library = self.salibrary or self.svlibrary or self.calibrary or self.cvlibrary
-            #check for xbmc level
-            #level 0 :
-            #level 0 will be emitted with a special upstart script
-            #level 1 :
-            if self.pvr :
-                self.emit_event('xbmcplevel',[{'LEVEL':5},{'PREVLEVEL':self.level}])
-                self.level = 5
-                self.pvr = False
-            elif self.screensaver and not self.player and not self.library and self.level != 1 :
-                self.emit_event('xbmcplevel',[{'LEVEL':1},{'PREVLEVEL':self.level}])
-                self.level = 1
-            #level 2 :
-            elif self.screensaver and (self.player or self.library) and self.level != 2 :
-                self.emit_event('xbmcplevel',[{'LEVEL':2},{'PREVLEVEL':self.level}])
-                self.level = 2
-            #level 3 :
-            elif not self.screensaver and not self.player and not self.library and self.level != 3 :
-                self.emit_event('xbmcplevel',[{'LEVEL':3},{'PREVLEVEL':self.level}])
-                self.level = 3
-            #level 4 :
-            elif not self.screensaver and (self.player != self.library) and self.level != 4 :   #!= stand for XOR
-                self.emit_event('xbmcplevel',[{'LEVEL':4},{'PREVLEVEL':self.level}])
-                self.level = 4
-            #level 5 :
-            elif not self.screensaver and self.player and self.library and self.level != 5 :
-                self.emit_event('xbmcplevel',[{'LEVEL':5},{'PREVLEVEL':self.level}])
-                self.level = 5
-
-#############  MAIN ###############
-main = xbmc_upstart_bridge()
-
-logging.info('Installing signal handler')
-signal.siginterrupt(signal.SIGTERM, False)
-signal.signal(signal.SIGTERM, main.handleSigTERM)
-signal.siginterrupt(signal.SIGINT, False)
-signal.signal(signal.SIGINT, main.handleSigTERM)
-
-main.main_loop()
-main.onExit()
+if __name__ == '__main__':
+    service = UpstartBridge()
+    while not xbmc.abortRequested:
+        xbmc.sleep(100)
