@@ -24,6 +24,9 @@ class UpstartBridge(object):
         self.player = XBMCPlayer()
         log('started', xbmc.LOGDEBUG)
 
+        # This comes from add-on "XBian Config" (version as of 2014-06-20)
+        self._notify_xbmc_loaded()
+
         self.current_level = self._calculate_priority_level()
 
     def _calculate_priority_level(self):
@@ -73,6 +76,14 @@ class UpstartBridge(object):
                 # Ensure we don't produce an infinite loop by passing change_level=False
                 self.emit_event('xbmcplevel', {'level': new_level, 'prevlevel': self.current_level}, change_level=False)
                 self.current_level = new_level
+
+    def _notify_xbmc_loaded(self):
+        start_cmd = ['sudo', 'start', '-n', '-q', 'xbmc-loaded']
+        log('notifying Upstart that XBMC has started correctly: %s' % ' '.join(start_cmd), xbmc.LOGDEBUG)
+        try:
+            subprocess.call(start_cmd)
+        except OSError as e:
+            log("the following error occurred while executing '%s': %s" % (' '.join(start_cmd), e), xbmc.LOGDEBUG)
 
     def stop(self, exit_code):
         stop_cmd = ['sudo', 'stop', '-n', '-q', 'xbmc']
