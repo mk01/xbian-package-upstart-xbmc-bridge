@@ -15,7 +15,6 @@ NORMAL_LEVEL = 3
 EXIT_CODE_FILE = '/run/lock/xbmc.quit'
 
 def log(msg, level=xbmc.LOGNOTICE):
-    if level == xbmc.LOGDEBUG: level = xbmc.LOGNOTICE # XXX testing, remove when done
     xbmc.log('%s: %s' % (__addonname__, msg), level)
 
 class UpstartBridge(object):
@@ -114,26 +113,26 @@ class XBMCMonitor(xbmc.Monitor):
             'scanning_video': bool(xbmc.getCondVisibility('Library.IsScanningVideo'))
         }
 
-    def onAbortRequested(self):
+    def onAbortRequested(self): # noqa
         log('got notification for event onAbortRequested', xbmc.LOGDEBUG)
         self.upstartbridge_instance = None
 
-    def onCleanFinished(self, library):
+    def onCleanFinished(self, library): # noqa
         log('got notification for event onCleanFinished, library: %s' % library, xbmc.LOGDEBUG)
         self.library_statuses['cleaning_' + library] = False
         self.upstartbridge_instance.emit_event('library', {'action': 'stop', 'mode': 'clean', 'type': library})
 
-    def onCleanStarted(self, library):
+    def onCleanStarted(self, library): # noqa
         log('got notification for event onCleanStarted, library: %s' % library, xbmc.LOGDEBUG)
         self.library_statuses['cleaning_' + library] = True
         self.upstartbridge_instance.emit_event('library', {'action': 'start', 'mode': 'clean', 'type': library})
 
-    def onDatabaseScanStarted(self, database):
+    def onDatabaseScanStarted(self, database): # noqa
         log('got notification for event onDatabaseScanStarted, database: %s' % database, xbmc.LOGDEBUG)
         self.library_statuses['scanning_' + database] = True
         self.upstartbridge_instance.emit_event('library', {'action': 'start', 'mode': 'scan', 'type': database})
 
-    def onDatabaseUpdated(self, database):
+    def onDatabaseUpdated(self, database): # noqa
         log('got notification for event onDatabaseUpdated, database: %s' % database, xbmc.LOGDEBUG)
         self.library_statuses['scanning_' + database] = False
         # onDatabaseUpdated gets fired on '{Audio,Video}Library.OnScanFinished', so we emit 2 events here as old
@@ -142,7 +141,7 @@ class XBMCMonitor(xbmc.Monitor):
         self.upstartbridge_instance.emit_event('library', {'action': 'stop', 'mode': 'scan', 'type': database})
         self.upstartbridge_instance.emit_event('library', {'action': 'updated', 'mode': 'none', 'type': database}, change_level=False) # We just did with the emit_event above
 
-    def onNotification(self, sender, method, data):
+    def onNotification(self, sender, method, data): # noqa
         if method == 'System.OnQuit':
             exit_code = json.loads(data)
             log('got notification for event System.OnQuit, exit status code: %d' % exit_code, xbmc.LOGDEBUG)
@@ -159,18 +158,18 @@ class XBMCMonitor(xbmc.Monitor):
             log('got notification for event Player.OnStop', xbmc.LOGDEBUG)
             self.upstartbridge_instance.emit_event('player', {'action': 'stop', 'type': json.loads(data)['item']['type']})
 
-    def onScreensaverActivated(self):
+    def onScreensaverActivated(self): # noqa
         log('got notification for event onScreensaverActivated', xbmc.LOGDEBUG)
         self.screensaver = True
         self.upstartbridge_instance.emit_event('screensaver', {'action': 'start'})
 
-    def onScreensaverDeactivated(self):
+    def onScreensaverDeactivated(self): # noqa
         log('got notification for event onScreensaverDeactivated', xbmc.LOGDEBUG)
         self.screensaver = False
         self.upstartbridge_instance.emit_event('screensaver', {'action': 'stop'})
 
 class XBMCPlayer(xbmc.Player):
-    def isPlayingLiveTV(self):
+    def isPlayingLiveTV(self): # noqa
         if self.isPlaying():
             return self.getPlayingFile().startswith("pvr://")
         else:
