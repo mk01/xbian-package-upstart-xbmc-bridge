@@ -1,12 +1,8 @@
-import xbmc
-import xbmcaddon
-
+import json
 import subprocess
 
-try:
-    import simplejson as json
-except ImportError:
-    import json
+import xbmc
+import xbmcaddon
 
 __addonname__ = xbmcaddon.Addon().getAddonInfo('name')
 del xbmcaddon
@@ -113,6 +109,11 @@ class XBMCMonitor(xbmc.Monitor):
             'scanning_video': bool(xbmc.getCondVisibility('Library.IsScanningVideo'))
         }
 
+        # This should never fail
+        json_response = json.loads(xbmc.executeJSONRPC('{"jsonrpc": "2.0", "id": "ApiVersion", "method": "JSONRPC.Version"}'))
+        json_version = json_response['result']['version']
+        self.jsonrpc_api_ver = (json_version['major'], json_version['minor'], json_version['patch'])
+
     def onAbortRequested(self): # noqa
         log('got notification for event onAbortRequested', xbmc.LOGDEBUG)
         self.upstartbridge_instance = None
@@ -144,6 +145,8 @@ class XBMCMonitor(xbmc.Monitor):
     def onNotification(self, sender, method, data): # noqa
         if method == 'System.OnQuit':
             exit_code = json.loads(data)
+            if self.jsonrpc_api_ver >= (6, 21, 0): # Format has changed in 6.21.0: int -> dict(int)
+                exit_code = exit_code['exitcode']
             log('got notification for event System.OnQuit, exit status code: %d' % exit_code, xbmc.LOGDEBUG)
             self.upstartbridge_instance.stop(exit_code)
         # We don't use the onPlayBack* callbacks as to find the "type" we need to call xbmc.getCondVisibility()/xbmc.getInfoLabel()

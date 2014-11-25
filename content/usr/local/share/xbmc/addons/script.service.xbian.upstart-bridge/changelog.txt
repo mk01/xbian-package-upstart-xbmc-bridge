@@ -1,2 +1,5 @@
+v2.0.1
+- Fix after JSON-RPC API change for onQuit notification.
+
 v2.0.0
 - Initial release as a XBMC add-on.
