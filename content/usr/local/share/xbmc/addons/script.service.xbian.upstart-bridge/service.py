@@ -153,12 +153,15 @@ class XBMCMonitor(xbmc.Monitor):
         # but they sometimes incorrectly return an empty string and/or a wrong boolean value.
         elif method == 'Player.OnPlay': # playback started or resumed
             log('got notification for event Player.OnPlay. player.isPlayingLiveTV() = %s' % self.upstartbridge_instance.player.isPlayingLiveTV(), xbmc.LOGDEBUG)
+            self.upstartbridge_instance.player.paused = False
             self.upstartbridge_instance.emit_event('player', {'action': 'play', 'type': json.loads(data)['item']['type']})
         elif method == 'Player.OnPause':
             log('got notification for event Player.OnPause', xbmc.LOGDEBUG)
+            self.upstartbridge_instance.player.paused = True
             self.upstartbridge_instance.emit_event('player', {'action': 'pause', 'type': json.loads(data)['item']['type']})
         elif method == 'Player.OnStop':
             log('got notification for event Player.OnStop', xbmc.LOGDEBUG)
+            self.upstartbridge_instance.player.paused = False
             self.upstartbridge_instance.emit_event('player', {'action': 'stop', 'type': json.loads(data)['item']['type']})
 
     def onScreensaverActivated(self): # noqa
@@ -171,12 +174,23 @@ class XBMCMonitor(xbmc.Monitor):
         self.screensaver = False
         self.upstartbridge_instance.emit_event('screensaver', {'action': 'stop'})
 
-class XBMCPlayer(xbmc.Player):
+class mPlayer(xbmc.Player):
+    def __init__(self):
+        return
+
+class XBMCPlayer():
+    def __init__(self):
+        self.paused = False
+        self.master = mPlayer()
+
     def isPlayingLiveTV(self): # noqa
         if self.isPlaying():
-            return self.getPlayingFile().startswith("pvr://")
+            return self.master.getPlayingFile().startswith("pvr://")
         else:
             return False
+
+    def isPlaying(self):
+        return not self.paused and self.master.isPlaying()
 
 if __name__ == '__main__':
     service = UpstartBridge()
