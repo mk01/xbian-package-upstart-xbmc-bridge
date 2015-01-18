@@ -1,9 +1,9 @@
 Origin: XBian
 Package: xbian-package-upstart-xbmc-bridge
-Version: 1.1.6
+Version: 1.1.7
 Section: utils
 Priority: optional
 Architecture: armhf
-Breaks: xbian-package-xbmc (<<13.2), xbian-package-xbmc-6q (<<13.2)
+Breaks: xbian-package-xbmc (<<14.0), xbian-package-xbmc-6q (<<14.0)
 Maintainer: belese <besme2@gmail.com>
 Description: Bridge between xbmc event and upstart

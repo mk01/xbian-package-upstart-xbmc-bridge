@@ -4,6 +4,8 @@ import subprocess
 import xbmc
 import xbmcaddon
 
+import os
+
 __addonname__ = xbmcaddon.Addon().getAddonInfo('name')
 del xbmcaddon
 
@@ -73,6 +75,9 @@ class UpstartBridge(object):
                 self.current_level = new_level
 
     def _notify_xbmc_loaded(self):
+        if subprocess.call("sudo /sbin/status xbmc-loaded|grep -q start/running", shell=True):
+            return
+
         start_cmd = ['sudo', 'start', '-n', '-q', 'xbmc-loaded']
         log('notifying Upstart that XBMC has started correctly: %s' % ' '.join(start_cmd), xbmc.LOGDEBUG)
         try:
