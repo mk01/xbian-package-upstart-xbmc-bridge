@@ -75,10 +75,14 @@ class UpstartBridge(object):
                 self.current_level = new_level
 
     def _notify_xbmc_loaded(self):
+        start_cmd = ['sudo', 'start', '-n', '-q', 'xbmc-loaded']
+        ## as of XBMC v14, emiting is XBMC directly (via patch to it's source)
+        log('dummy action. xbmc-loaded would be called. : %s' % ' '.join(start_cmd), xbmc.LOGDEBUG)
+        return
+
         if subprocess.call("sudo /sbin/status xbmc-loaded|grep -q start/running", shell=True):
             return
 
-        start_cmd = ['sudo', 'start', '-n', '-q', 'xbmc-loaded']
         log('notifying Upstart that XBMC has started correctly: %s' % ' '.join(start_cmd), xbmc.LOGDEBUG)
         try:
             subprocess.call(start_cmd)
