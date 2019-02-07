@@ -15,8 +15,9 @@ if [ "$(uname -m)" != 'armv6l' ]; then
     [ $? -eq '127' ] && { echo "please install binutils-arm-linux-gnueabihf"; str=''; true; } || str='arm-linux-gnueabihf-strip'
 fi
 
+version=$(awk -F version= '/\<addon id/{print $2}' ./content/usr/local/share/kodi/addons/script.service.xbian.upstart-bridge/addon.xml | awk -F \" '{print $2}')
+sed -i "s/Version:.*/Version: $version/g" ./content/DEBIAN/control
 package=$(cat ./content/DEBIAN/control | grep Package | awk '{print $2}')
-version=$(cat ./content/DEBIAN/control | grep Version | awk '{print $2}')
 
 # calculate size dynamically. remove first any entry, then add the actual 
 rm_size
