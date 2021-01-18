@@ -1,3 +1,16 @@
+v2.0.5
+- Now handle the Kodi event Player.OnResume
+
+v2.0.4
+- Use LOGINFO instead of LOGNOTICE now because LOGNOTICE does not longer
+  exists in Kodi 19
+
+v2.0.3
+- Use monitor.abortRequested() for Kodi version > 18 now
+
+v2.0.2
+- Don't emit xbmc-loaded anymore. It's directly handled by XBMC/Kodi.
+
 v2.0.1
 - Fix after JSON-RPC API change for onQuit notification.
 

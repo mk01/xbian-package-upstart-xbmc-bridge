@@ -12,8 +12,18 @@ del xbmcaddon
 NORMAL_LEVEL = 3
 EXIT_CODE_FILE = '/run/lock/xbmc.quit'
 
-def log(msg, level=xbmc.LOGNOTICE):
+KODI_VERSION_MAJOR = int(xbmc.getInfoLabel('System.BuildVersion')[0:2])
+if KODI_VERSION_MAJOR > 18:
+    monitor = xbmc.Monitor()
+
+def log(msg, level=xbmc.LOGINFO):
     xbmc.log('%s: %s' % (__addonname__, msg), level)
+
+def abortRequested():
+    if KODI_VERSION_MAJOR > 18:
+        return monitor.abortRequested()
+    else:
+        return xbmc.abortRequested
 
 class UpstartBridge(object):
     def __init__(self):
@@ -160,8 +170,8 @@ class XBMCMonitor(xbmc.Monitor):
             self.upstartbridge_instance.stop(exit_code)
         # We don't use the onPlayBack* callbacks as to find the "type" we need to call xbmc.getCondVisibility()/xbmc.getInfoLabel()
         # but they sometimes incorrectly return an empty string and/or a wrong boolean value.
-        elif method == 'Player.OnPlay': # playback started or resumed
-            log('got notification for event Player.OnPlay. player.isPlayingLiveTV() = %s' % self.upstartbridge_instance.player.isPlayingLiveTV(), xbmc.LOGDEBUG)
+        elif method == 'Player.OnPlay' or method == 'Player.OnResume': # playback started or resumed
+            log('got notification for event %s. player.isPlayingLiveTV() = %s' % (method, self.upstartbridge_instance.player.isPlayingLiveTV(),), xbmc.LOGDEBUG)
             self.upstartbridge_instance.player.paused = False
             self.upstartbridge_instance.emit_event('player', {'action': 'play', 'type': json.loads(data)['item']['type']})
         elif method == 'Player.OnPause':
@@ -203,5 +213,5 @@ class XBMCPlayer():
 
 if __name__ == '__main__':
     service = UpstartBridge()
-    while not xbmc.abortRequested:
-        xbmc.sleep(100)
+    while not abortRequested():
+        xbmc.sleep(200)
